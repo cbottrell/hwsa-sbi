@@ -9,6 +9,7 @@ dependencies:
   - matplotlib
   - pytorch
   - ipykernel
+  - ipywidgets
   - jupyterlab
   - jupytext
   - tqdm

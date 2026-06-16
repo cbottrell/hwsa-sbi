@@ -86,6 +86,14 @@ conda activate hwsa-sbi
 python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-sbi)"
 ```
 
+If you see a warning that says `IProgress not found`, update the environment
+and restart JupyterLab:
+
+```bash
+conda activate hwsa-sbi
+conda env update -f environment.yml --prune
+```
+
 The matching `.py` files are Jupytext percent notebooks. They are useful for
 version control and for editors such as VS Code, but participants can ignore
 them and use the `.ipynb` files directly. If you edit the `.py` notebooks and

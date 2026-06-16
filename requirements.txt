@@ -5,6 +5,7 @@ torch>=2.2
 sbi>=0.26
 corner>=2.2
 ipykernel>=6
+ipywidgets>=8
 jupyterlab>=4
 jupytext>=1.16
 tqdm>=4.66
