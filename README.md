@@ -100,8 +100,8 @@ them and use the `.ipynb` files directly. If you edit the `.py` notebooks and
 want to regenerate `.ipynb` copies, run:
 
 ```bash
-jupytext --to ipynb notebooks/01_gravitational_wave_sbi.py
-jupytext --to ipynb notebooks/02_sparse_vlbi_ring_sbi.py
+jupytext --from py:percent --to ipynb --update-metadata '{"kernelspec":{"display_name":"Python (hwsa-sbi)","language":"python","name":"hwsa-sbi"}}' notebooks/01_gravitational_wave_sbi.py
+jupytext --from py:percent --to ipynb --update-metadata '{"kernelspec":{"display_name":"Python (hwsa-sbi)","language":"python","name":"hwsa-sbi"}}' notebooks/02_sparse_vlbi_ring_sbi.py
 ```
 
 ## Workshop Flow

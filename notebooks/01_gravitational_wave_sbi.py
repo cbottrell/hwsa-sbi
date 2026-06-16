@@ -1,16 +1,3 @@
-# ---
-# jupyter:
-#   jupytext:
-#     text_representation:
-#       extension: .py
-#       format_name: percent
-#       format_version: '1.3'
-# kernelspec:
-#   display_name: Python 3
-#   language: python
-#   name: python3
-# ---
-
 # %% [markdown]
 # # Recovering a Noisy Gravitational-Wave-Like Chirp With SBI
 #
@@ -32,6 +19,9 @@
 from pathlib import Path
 import sys
 
+# Jupyter may be launched either from the repository root or from `notebooks/`.
+# Adding `src/` to the front of `sys.path` lets this notebook import the local
+# workshop package without requiring `pip install -e .`.
 ROOT = Path.cwd()
 if (ROOT / "src").exists():
     sys.path.insert(0, str(ROOT / "src"))
@@ -41,6 +31,7 @@ elif (ROOT.parent / "src").exists():
 import matplotlib.pyplot as plt
 import torch
 
+# NPE = Neural Posterior Estimation: learn p(theta | x) from simulations.
 from sbi.inference import NPE
 
 from gw_sbi_demo import (
@@ -55,7 +46,11 @@ from gw_sbi_demo import (
 )
 from gw_sbi_demo.plotting import plot_corner, plot_posterior_predictive, plot_signal
 
+# Fixing the seed makes the workshop reproducible: students should see the same
+# random training examples and posterior plots when they rerun the notebook.
 torch.manual_seed(7)
+
+# Increase inline figure resolution without changing the underlying data.
 plt.rcParams.update({"figure.dpi": 120})
 
 # %% [markdown]
@@ -73,18 +68,30 @@ plt.rcParams.update({"figure.dpi": 120})
 
 # %%
 config = GWConfig(
-    n_time=256,
-    duration=1.0,
-    noise_std=0.35,
-    noise_knee_hz=35.0,
-    device="cpu",
+    n_time=256,       # number of samples in each strain time series
+    duration=1.0,     # seconds covered by the synthetic detector segment
+    noise_std=0.35,   # larger values make the recovery problem harder
+    noise_knee_hz=35.0,  # sets where the coloured-noise spectrum turns over
+    device="cpu",     # keep the demo laptop-friendly; use "cuda" if available
 )
 
+# `time` is used only for plotting; the simulator itself knows the same config.
 time = time_grid(config)
+
+# The prior is a BoxUniform over (chirp_mass, amplitude, merger_time, phase).
+# SBI will learn only within this parameter range, so prior limits matter.
 prior = build_prior(device=config.device)
 
+# One known source used to generate a synthetic "observed" event. In real use,
+# this would be the unknown event we are trying to infer.
 true_theta = torch.tensor([32.0, 1.15, 0.74, 1.25])
+
+# `seed` fixes just this observation's noise realisation, separate from the
+# training simulations below.
 x_obs = make_observation(true_theta, config=config, seed=42)
+
+# The clean signal is not available in real data; we keep it here for teaching
+# overlays so students can see what the noisy observation is hiding.
 x_clean = clean_chirp(true_theta, config=config)
 
 ax = plot_signal(time, x_obs, x_clean, title="Synthetic observed strain")
@@ -103,13 +110,26 @@ plt.show()
 # %%
 NUM_SIMULATIONS = 5000
 
+# `prior.sample((N,))` returns an N x 4 tensor: one row per simulated source.
 theta_train = prior.sample((NUM_SIMULATIONS,))
+
+# A separate generator makes the simulated noise reproducible without changing
+# other random draws, such as posterior samples later in the notebook.
 noise_generator = torch.Generator(device=config.device).manual_seed(2026)
+
+# `simulate` is vectorised: it accepts all parameter rows and returns an
+# N x n_time matrix of noisy strain segments.
 x_train = simulate(theta_train, config=config, generator=noise_generator)
 
+# Neural density estimators train more stably when input features have similar
+# scales. We standardise each time bin using the training simulations only.
 x_mean = x_train.mean(dim=0)
 x_std = x_train.std(dim=0)
 x_train_z = standardize(x_train, x_mean, x_std)
+
+# The observed event must be transformed with the same training mean/std. Do not
+# recompute statistics from `x_obs`, because that would leak observation-specific
+# information into the preprocessing.
 x_obs_z = standardize(x_obs, x_mean, x_std)
 
 print(f"theta_train shape: {tuple(theta_train.shape)}")
@@ -122,8 +142,14 @@ print(f"x_train shape:     {tuple(x_train.shape)}")
 
 # %%
 fig, axes = plt.subplots(4, 1, figsize=(9, 6), sharex=True)
+
+# `torch.randperm(NUM_SIMULATIONS)[:4]` chooses four unique random rows without
+# replacement, so every plotted example is a different simulated event.
 for ax, idx in zip(axes, torch.randperm(NUM_SIMULATIONS)[:4]):
     ax.plot(time, x_train[idx], color="0.25", lw=1.0)
+
+    # `zip(names, values)` pairs each parameter value with its label; the
+    # generator expression keeps the label formatting compact.
     label = ", ".join(
         f"{name}={value:.2f}"
         for name, value in zip(DEFAULT_PARAMETER_NAMES, theta_train[idx])
@@ -144,11 +170,18 @@ plt.show()
 
 # %%
 inference = NPE(prior=prior)
+
+# `append_simulations(theta, x)` gives SBI paired examples of causes and
+# observations. `theta_train` is unstandardised because the prior is defined in
+# physical parameter units; only the data vector `x` was standardised.
 density_estimator = inference.append_simulations(theta_train, x_train_z).train(
-    training_batch_size=256,
-    max_num_epochs=80,
-    stop_after_epochs=10,
+    training_batch_size=256,  # simulations per optimiser step
+    max_num_epochs=80,       # hard upper limit; training may stop earlier
+    stop_after_epochs=10,    # early stopping patience after validation stalls
 )
+
+# The trained density estimator becomes a reusable posterior object. We can now
+# condition it on any standardised observation from the same simulator/prior.
 posterior = inference.build_posterior(density_estimator)
 
 # %% [markdown]
@@ -164,8 +197,12 @@ posterior = inference.build_posterior(density_estimator)
 # over all parameter values compatible with the noisy signal and the prior.
 
 # %%
+# The keyword `x=` is the observation we condition on. The shape `(5000,)` asks
+# for 5000 independent draws from p(theta | x_obs).
 posterior_samples = posterior.sample((5000,), x=x_obs_z)
 
+# Means and standard deviations are summaries only; the full sample cloud is the
+# posterior approximation we care about.
 posterior_mean = posterior_samples.mean(dim=0)
 posterior_std = posterior_samples.std(dim=0)
 
@@ -197,7 +234,11 @@ plt.show()
 # structure that the simulator cannot express.
 
 # %%
+# Use a subset of posterior samples so the plot remains readable.
 draw_ids = torch.randperm(posterior_samples.shape[0])[:160]
+
+# We draw clean chirps, not noisy simulations, to show which signal shapes the
+# posterior believes could be hiding under the observed detector noise.
 predictive_clean = clean_chirp(posterior_samples[draw_ids], config=config)
 
 ax = plot_posterior_predictive(
@@ -219,10 +260,17 @@ plt.show()
 # the data-generating process.
 
 # %%
+# A narrow Gaussian bump is a simple stand-in for an unmodelled detector glitch.
+# The expression is amplitude * exp[-0.5 * ((t - centre) / width)^2].
 glitch = 1.2 * torch.exp(-0.5 * ((time - 0.48) / 0.012) ** 2)
 x_glitch = x_obs + glitch
+
+# Keep the same training-set standardisation. Changing preprocessing here would
+# make this observation inconsistent with what the neural posterior learned.
 x_glitch_z = standardize(x_glitch, x_mean, x_std)
 
+# The posterior object is reused without retraining: only the conditioning
+# observation changes.
 glitch_samples = posterior.sample((3000,), x=x_glitch_z)
 glitch_draw_ids = torch.randperm(glitch_samples.shape[0])[:160]
 glitch_predictive = clean_chirp(glitch_samples[glitch_draw_ids], config=config)

@@ -5,3 +5,4 @@ __pycache__/
 .venv/
 out/
 outputs/
+notebooks/sbi-logs/
