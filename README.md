@@ -16,8 +16,18 @@ The material is designed for a hands-on workshop:
 
 ## Quick Start
 
-Current `sbi` releases require Python 3.10 or newer. The system Python in this
-workspace is 3.9, so use a fresh environment.
+Use a fresh Python environment for the workshop. Current `sbi` releases require
+Python 3.10 or newer; the conda instructions below create a Python 3.11
+environment with all required packages.
+
+Start by cloning the repository and moving into it:
+
+```bash
+git clone https://github.com/cbottrell/hwsa-sbi.git
+cd hwsa-sbi
+```
+
+The recommended setup is conda or mamba.
 
 With conda or mamba:
 
@@ -28,7 +38,7 @@ python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-
 jupyter lab
 ```
 
-With `venv`:
+If you prefer `venv`, use Python 3.10 or newer:
 
 ```bash
 python3.11 -m venv .venv
@@ -39,30 +49,41 @@ python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-
 jupyter lab
 ```
 
-When JupyterLab opens in the browser, open the standard notebooks in
-`notebooks/`:
+When JupyterLab opens in the browser, use the file browser to open one of the
+standard notebooks in `notebooks/`:
 
 - `01_gravitational_wave_sbi.ipynb`: main workshop example.
 - `02_sparse_vlbi_ring_sbi.ipynb`: optional M87/VLBI-style extension.
 
-If Jupyter asks you to choose a kernel, select the Python kernel from the
-`hwsa-sbi` environment. If the browser asks for a token, use the full URL printed
-in the terminal where you ran `jupyter lab`.
+If Jupyter asks you to choose a kernel, select **Python (hwsa-sbi)**. If the
+browser asks for a token, use the full URL printed in the terminal where you ran
+`jupyter lab`.
 
-If `Python (hwsa-sbi)` is missing from the kernel list, register it from the
-activated environment:
+### Kernel Troubleshooting
+
+If **Python (hwsa-sbi)** is missing from the kernel list, register it from the
+activated environment and restart JupyterLab:
 
 ```bash
 conda activate hwsa-sbi
 python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-sbi)"
 ```
 
-Then restart JupyterLab and choose **Kernel -> Change Kernel -> Python
-(hwsa-sbi)**. If you created the environment before these instructions were
-added, update it first:
+Then choose **Kernel -> Change Kernel -> Python (hwsa-sbi)**.
+
+If you already had an older `hwsa-sbi` environment, update it with:
 
 ```bash
 conda env update -f environment.yml --prune
+```
+
+or remove and recreate it:
+
+```bash
+conda env remove -n hwsa-sbi
+conda env create -f environment.yml
+conda activate hwsa-sbi
+python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-sbi)"
 ```
 
 The matching `.py` files are Jupytext percent notebooks. They are useful for
