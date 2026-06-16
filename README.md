@@ -37,15 +37,25 @@ python -m pip install -r requirements.txt
 jupyter lab
 ```
 
-Open the Jupytext notebooks in `notebooks/`:
+When JupyterLab opens in the browser, open the standard notebooks in
+`notebooks/`:
 
-- `01_gravitational_wave_sbi.py`: main workshop example.
-- `02_sparse_vlbi_ring_sbi.py`: optional M87/VLBI-style extension.
+- `01_gravitational_wave_sbi.ipynb`: main workshop example.
+- `02_sparse_vlbi_ring_sbi.ipynb`: optional M87/VLBI-style extension.
 
-If your Jupyter installation does not automatically treat `.py` files as
-notebooks, install Jupytext from the requirements and open them through the
-JupyterLab text/notebook pairing workflow, or run the cells in an editor that
-supports `# %%` cell markers.
+If Jupyter asks you to choose a kernel, select the Python kernel from the
+`hwsa-sbi` environment. If the browser asks for a token, use the full URL printed
+in the terminal where you ran `jupyter lab`.
+
+The matching `.py` files are Jupytext percent notebooks. They are useful for
+version control and for editors such as VS Code, but participants can ignore
+them and use the `.ipynb` files directly. If you edit the `.py` notebooks and
+want to regenerate `.ipynb` copies, run:
+
+```bash
+jupytext --to ipynb notebooks/01_gravitational_wave_sbi.py
+jupytext --to ipynb notebooks/02_sparse_vlbi_ring_sbi.py
+```
 
 ## Workshop Flow
 
@@ -90,4 +100,3 @@ series.
 - [`bilby` documentation](https://bilby-dev.github.io/bilby/)
 - [`GWpy` documentation](https://gwpy.github.io/docs/stable/)
 - [`eht-imaging` documentation](https://achael.github.io/eht-imaging/)
-
