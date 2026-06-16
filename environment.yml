@@ -8,10 +8,10 @@ dependencies:
   - scipy
   - matplotlib
   - pytorch
+  - ipykernel
   - jupyterlab
   - jupytext
   - tqdm
   - pip:
       - sbi>=0.26
       - corner>=2.2
-

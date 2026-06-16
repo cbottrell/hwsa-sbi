@@ -24,6 +24,7 @@ With conda or mamba:
 ```bash
 conda env create -f environment.yml
 conda activate hwsa-sbi
+python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-sbi)"
 jupyter lab
 ```
 
@@ -34,6 +35,7 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-sbi)"
 jupyter lab
 ```
 
@@ -46,6 +48,22 @@ When JupyterLab opens in the browser, open the standard notebooks in
 If Jupyter asks you to choose a kernel, select the Python kernel from the
 `hwsa-sbi` environment. If the browser asks for a token, use the full URL printed
 in the terminal where you ran `jupyter lab`.
+
+If `Python (hwsa-sbi)` is missing from the kernel list, register it from the
+activated environment:
+
+```bash
+conda activate hwsa-sbi
+python -m ipykernel install --user --name hwsa-sbi --display-name "Python (hwsa-sbi)"
+```
+
+Then restart JupyterLab and choose **Kernel -> Change Kernel -> Python
+(hwsa-sbi)**. If you created the environment before these instructions were
+added, update it first:
+
+```bash
+conda env update -f environment.yml --prune
+```
 
 The matching `.py` files are Jupytext percent notebooks. They are useful for
 version control and for editors such as VS Code, but participants can ignore
