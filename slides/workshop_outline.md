@@ -38,7 +38,7 @@ could plausibly have produced that noisy data.
 3. **Worked Example: Noisy Chirp Recovery**
    - Choose physically interpretable parameters.
    - Simulate clean chirps.
-   - Add colored detector-like noise.
+   - Add coloured detector-like noise.
    - Train neural posterior estimation.
    - Condition on one observed strain segment.
 
@@ -70,4 +70,3 @@ could plausibly have produced that noisy data.
 3. Generate an observation with a phase outside the assumed prior. What breaks?
 4. Add a short glitch to the observed data. Does the posterior predictive check catch it?
 5. In the VLBI notebook, reduce the number of baselines. Which image parameters remain identifiable?
-

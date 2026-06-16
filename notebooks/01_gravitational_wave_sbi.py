@@ -65,7 +65,7 @@ plt.rcParams.update({"figure.dpi": 120})
 #
 # ```text
 # theta = (chirp_mass, amplitude, merger_time, phase)
-# theta -> clean chirp -> detector-like colored noise -> observed strain
+# theta -> clean chirp -> detector-like coloured noise -> observed strain
 # ```
 #
 # Larger `noise_std` makes the inverse problem harder. During a workshop, this
@@ -228,7 +228,7 @@ glitch_draw_ids = torch.randperm(glitch_samples.shape[0])[:160]
 glitch_predictive = clean_chirp(glitch_samples[glitch_draw_ids], config=config)
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 3), sharey=True)
-plot_signal(time, x_glitch, x_clean, ax=axes[0], title="Observation with an unmodeled glitch")
+plot_signal(time, x_glitch, x_clean, ax=axes[0], title="Observation with an unmodelled glitch")
 plot_posterior_predictive(
     time,
     x_glitch,
@@ -245,6 +245,5 @@ plt.show()
 # 1. Change `config.noise_std` to `0.55`. Which parameters become uncertain?
 # 2. Reduce `NUM_SIMULATIONS` to `1000`. What changes in the posterior?
 # 3. Increase the prior width on `merger_time`. Does the posterior still find the signal?
-# 4. Replace colored noise with white noise in `src/gw_sbi_demo/simulator.py`.
+# 4. Replace coloured noise with white noise in `src/gw_sbi_demo/simulator.py`.
 # 5. Add a second chirp to the observation. Can the current simulator explain it?
-

@@ -126,7 +126,7 @@ def colored_noise(
     config: GWConfig = GWConfig(),
     generator: Optional[torch.Generator] = None,
 ) -> torch.Tensor:
-    """Generate simple colored Gaussian noise for strain segments."""
+    """Generate simple coloured Gaussian noise for strain segments."""
 
     white = torch.randn(
         batch_size,
@@ -176,6 +176,6 @@ def standardize(
     mean: torch.Tensor,
     std: torch.Tensor,
 ) -> torch.Tensor:
-    """Apply feature-wise standardization with a safe denominator."""
+    """Apply feature-wise standardisation with a safe denominator."""
 
     return (x - mean) / std.clamp_min(1e-6)

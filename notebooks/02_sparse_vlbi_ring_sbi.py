@@ -230,5 +230,4 @@ plt.show()
 # 2. Increase `noise_std` in `observe_ring`.
 # 3. Fix the asymmetry to zero in the simulator. Which posterior dimensions disappear?
 # 4. Replace random uv coverage with a few radial tracks.
-# 5. Compare posterior image draws to a regularized maximum likelihood image.
-
+# 5. Compare posterior image draws to a regularised maximum likelihood image.

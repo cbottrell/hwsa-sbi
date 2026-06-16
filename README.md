@@ -106,7 +106,7 @@ Recommended timing for a 2-3 hour workshop:
 | Build the chirp simulator | 25 min | Show priors, parameters, stochastic noise |
 | Generate training simulations | 20 min | Connect simulation budget to posterior quality |
 | Train neural posterior estimation | 30 min | Use `sbi.inference.NPE` |
-| Infer one observed signal | 25 min | Sample and visualize `p(theta | x_o)` |
+| Infer one observed signal | 25 min | Sample and visualise `p(theta | x_o)` |
 | Posterior predictive checks | 25 min | Ask whether inferred parameters reproduce the data |
 | Extensions and exercises | 20 min | Noise, glitches, sparsity, VLBI |
 
