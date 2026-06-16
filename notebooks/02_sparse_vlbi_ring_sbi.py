@@ -53,7 +53,15 @@ plt.rcParams.update({"figure.dpi": 120})
 # coverage means the image is not directly observed.
 
 # %%
-def make_uv_coverage(n_visibilities=96, uv_radius=18.0, seed=3):
+# Choose `"points"` for independent random uv samples, or `"arcs"` for
+# Earth-rotation-like tracks. In arc mode, `N_UV_ARCS` is the only workshop knob:
+# the helper below chooses realistic track lengths, curvature, and sampling.
+UV_COVERAGE_MODE = "points"
+N_UV_POINTS = 96
+N_UV_ARCS = 6
+
+
+def make_point_uv_coverage(n_visibilities=N_UV_POINTS, uv_radius=18.0, seed=3):
     # `torch.Generator` keeps this function's randomness local and repeatable.
     generator = torch.Generator().manual_seed(seed)
 
@@ -68,18 +76,78 @@ def make_uv_coverage(n_visibilities=96, uv_radius=18.0, seed=3):
     return torch.stack([u, v], dim=1)
 
 
-uv = make_uv_coverage(n_visibilities=96)
+def make_arc_uv_coverage(n_arcs):
+    generator = torch.Generator().manual_seed(3)
+
+    # These internal choices keep the arc geometry realistic without adding more
+    # user-facing controls. The formula is a simplified Earth-rotation synthesis
+    # projection for a source at a low northern declination.
+    samples_per_arc = 16
+    uv_radius = 18.0
+    source_declination = torch.tensor(0.22)
+    hour_angle_offsets = torch.linspace(-0.5, 0.5, samples_per_arc)
+
+    tracks = []
+    for _ in range(n_arcs):
+        baseline_length = uv_radius * (0.35 + 0.65 * torch.rand((), generator=generator))
+        baseline_angle = 2.0 * pi * torch.rand((), generator=generator)
+        vertical_fraction = 0.12 * (2.0 * torch.rand((), generator=generator) - 1.0)
+
+        baseline_east = baseline_length * torch.cos(baseline_angle)
+        baseline_north = baseline_length * torch.sin(baseline_angle)
+        baseline_up = baseline_length * vertical_fraction
+
+        centre_hour_angle = 2.0 * pi * torch.rand((), generator=generator)
+        hour_angle_span = 0.45 + 0.35 * torch.rand((), generator=generator)
+        hour_angle = centre_hour_angle + hour_angle_span * hour_angle_offsets
+
+        # Project one physical baseline through a short hour-angle range. The
+        # sine/cosine terms naturally produce curved tracks across the uv plane.
+        u = baseline_east * torch.sin(hour_angle) + baseline_north * torch.cos(hour_angle)
+        v = (
+            -baseline_east * torch.sin(source_declination) * torch.cos(hour_angle)
+            + baseline_north * torch.sin(source_declination) * torch.sin(hour_angle)
+            + baseline_up * torch.cos(source_declination)
+        )
+        tracks.append(torch.stack([u, v], dim=1))
+
+    arc_points = torch.cat(tracks, dim=0)
+
+    # For real sky brightness, V(-u, -v) is the complex conjugate of V(u, v).
+    # Include both halves in the simulated observation rather than only drawing
+    # the reflected points in the plot.
+    return torch.cat([arc_points, -arc_points], dim=0)
+
+
+if UV_COVERAGE_MODE == "points":
+    uv = make_point_uv_coverage()
+elif UV_COVERAGE_MODE == "arcs":
+    uv = make_arc_uv_coverage(n_arcs=N_UV_ARCS)
+else:
+    raise ValueError('UV_COVERAGE_MODE must be either "points" or "arcs"')
 
 fig, ax = plt.subplots(figsize=(4, 4))
-ax.scatter(uv[:, 0], uv[:, 1], s=18)
+if UV_COVERAGE_MODE == "arcs":
+    samples_per_arc = uv.shape[0] // (2 * N_UV_ARCS)
+    tracks = uv[: N_UV_ARCS * samples_per_arc].reshape(N_UV_ARCS, samples_per_arc, 2)
+    conjugate_tracks = uv[N_UV_ARCS * samples_per_arc :].reshape(N_UV_ARCS, samples_per_arc, 2)
 
-# Real sky brightness has conjugate-symmetric Fourier samples, so plotting the
-# reflected points gives a more interferometer-like visual.
-ax.scatter(-uv[:, 0], -uv[:, 1], s=18, alpha=0.35)
+    for track, conjugate_track in zip(tracks, conjugate_tracks):
+        ax.plot(track[:, 0], track[:, 1], color="tab:blue", lw=1.2)
+        ax.scatter(track[:, 0], track[:, 1], color="tab:blue", s=14)
+        ax.plot(conjugate_track[:, 0], conjugate_track[:, 1], color="tab:orange", lw=1.2, alpha=0.6)
+        ax.scatter(conjugate_track[:, 0], conjugate_track[:, 1], color="tab:orange", s=14, alpha=0.6)
+else:
+    ax.scatter(uv[:, 0], uv[:, 1], s=18)
+
+    # Real sky brightness has conjugate-symmetric Fourier samples, so plotting
+    # the reflected points gives a more interferometer-like visual.
+    ax.scatter(-uv[:, 0], -uv[:, 1], s=18, alpha=0.35)
+
 ax.set_xlabel("u")
 ax.set_ylabel("v")
 ax.set_title("Toy sparse uv coverage")
-ax.set_aspect("equal")
+ax.set_aspect("auto")
 plt.show()
 
 # %% [markdown]
@@ -94,10 +162,16 @@ plt.show()
 # %%
 VLBI_PARAMETER_NAMES = ("diameter", "width", "asymmetry", "angle")
 VLBI_LOW = torch.tensor([0.34, 0.035, 0.00, 0.0])
-VLBI_HIGH = torch.tensor([0.72, 0.120, 0.70, 2.0 * pi])
+VLBI_HIGH = torch.tensor([0.72, 0.120, 0.99, 2.0 * pi])
 
+# Number of pixels along each image axis. Try `24`, `32`, or `48` in the
+# workshop. Larger values make smoother images but each simulation is slower,
+# because every visibility sums over `N_PIX ** 2` pixels.
+N_PIX = 128
 
-def _image_grid(n_pix=32, fov=1.0):
+def _image_grid(n_pix=None, fov=1.0):
+    n_pix = N_PIX if n_pix is None else n_pix
+
     # Image coordinates span the field of view. `meshgrid` returns 2D x/y arrays
     # that we flatten so matrix operations can treat each pixel as one column.
     axis = torch.linspace(-0.5 * fov, 0.5 * fov, n_pix)
@@ -105,7 +179,9 @@ def _image_grid(n_pix=32, fov=1.0):
     return xx.reshape(-1), yy.reshape(-1)
 
 
-def ring_image(theta, n_pix=32, fov=1.0):
+def ring_image(theta, n_pix=None, fov=1.0):
+    n_pix = N_PIX if n_pix is None else n_pix
+
     # Accept either one parameter vector with shape (4,) or a batch with shape
     # (N, 4). The `single` flag lets us return the same style we received.
     theta = torch.as_tensor(theta, dtype=torch.float32)
@@ -140,7 +216,9 @@ def ring_image(theta, n_pix=32, fov=1.0):
     return image.squeeze(0) if single else image
 
 
-def observe_ring(theta, uv_points, n_pix=32, fov=1.0, noise_std=0.015):
+def observe_ring(theta, uv_points, n_pix=None, fov=1.0, noise_std=0.015):
+    n_pix = N_PIX if n_pix is None else n_pix
+
     # Same single-versus-batch handling as `ring_image`.
     theta = torch.as_tensor(theta, dtype=torch.float32)
     single = theta.ndim == 1
@@ -170,9 +248,9 @@ def observe_ring(theta, uv_points, n_pix=32, fov=1.0, noise_std=0.015):
 # Inspect one truth image and its sparse visibility amplitudes.
 
 # %%
-true_theta = torch.tensor([0.52, 0.065, 0.45, 2.35])
-x_obs = observe_ring(true_theta, uv)
-truth_image = ring_image(true_theta)
+true_theta = torch.tensor([0.52, 0.065, 0.77, 2.35])
+x_obs = observe_ring(true_theta, uv, n_pix=N_PIX)
+truth_image = ring_image(true_theta, n_pix=N_PIX)
 
 fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
 axes[0].imshow(truth_image, origin="lower", cmap="afmhot")
@@ -199,7 +277,7 @@ plt.show()
 # pattern is exactly the same.
 
 # %%
-NUM_SIMULATIONS = 6000
+NUM_SIMULATIONS = 5000
 
 # The prior is rectangular: every parameter is sampled independently between
 # the corresponding entries in VLBI_LOW and VLBI_HIGH.
@@ -208,7 +286,7 @@ theta_train = prior.sample((NUM_SIMULATIONS,))
 
 # Vectorised simulator call: all images and visibilities are generated in one
 # batch, which is much faster than a Python loop.
-x_train = observe_ring(theta_train, uv)
+x_train = observe_ring(theta_train, uv, n_pix=N_PIX)
 
 # Standardise each visibility feature using training simulations only. The same
 # transform must be applied to the observation before posterior sampling.
@@ -250,9 +328,13 @@ plt.show()
 # can constrain some image properties while leaving others broad.
 
 # %%
+# Render every posterior sample once. This gives us both individual image draws
+# and pixel-wise summaries of the whole posterior image ensemble.
+posterior_images = ring_image(samples, n_pix=N_PIX)
+
 # Choose a handful of posterior samples and render their implied images.
 draw_ids = torch.randperm(samples.shape[0])[:8]
-image_draws = ring_image(samples[draw_ids])
+image_draws = posterior_images[draw_ids]
 
 fig, axes = plt.subplots(2, 4, figsize=(8, 4))
 for ax, image in zip(axes.ravel(), image_draws):
@@ -263,11 +345,59 @@ fig.suptitle("Posterior image draws")
 fig.tight_layout()
 plt.show()
 
+# Pixel-wise posterior summaries. `median(dim=0)` collapses the sample axis and
+# keeps the N_PIX x N_PIX image geometry.
+median_image = posterior_images.median(dim=0).values
+
+# A posterior spread map is more useful than the Monte Carlo standard error here:
+# it shows where the inferred image itself is uncertain. The 16th-to-84th
+# percentile interval is the central 68% credible interval for each pixel.
+q16, q84 = torch.quantile(
+    posterior_images,
+    torch.tensor([0.16, 0.84], device=posterior_images.device),
+    dim=0,
+)
+fractional_credible_half_width = 0.5 * (q84 - q16) / median_image.clamp_min(1e-8)
+
+# Only show the fractional uncertainty where the median image is meaningfully
+# bright. Outside the ring, the median is nearly zero, so any fractional ratio is
+# visually dominated by division noise rather than image uncertainty.
+bright_pixels = median_image > 0.02 * median_image.max()
+masked_fractional_credible_half_width = fractional_credible_half_width.clone()
+masked_fractional_credible_half_width[~bright_pixels] = torch.nan
+credible_vmax = torch.quantile(
+    masked_fractional_credible_half_width[bright_pixels],
+    0.98,
+).item()
+
+uncertainty_cmap = plt.get_cmap("magma").copy()
+uncertainty_cmap.set_bad(color="0.92")
+
+fig, axes = plt.subplots(1, 3, figsize=(9, 3))
+summary_panels = [
+    (truth_image, "True image", "afmhot", None),
+    (median_image, "Posterior median", "afmhot", None),
+    (
+        masked_fractional_credible_half_width,
+        "68% half-width / median",
+        uncertainty_cmap,
+        credible_vmax,
+    ),
+]
+for ax, (image, title, cmap, vmax) in zip(axes, summary_panels):
+    im = ax.imshow(image, origin="lower", cmap=cmap, vmin=0, vmax=vmax)
+    ax.set_title(title)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+fig.tight_layout()
+plt.show()
+
 # %% [markdown]
 # ## Suggested Exercises
 #
-# 1. Reduce `n_visibilities` from `96` to `32` and retrain.
+# 1. Reduce `N_UV_POINTS` from `96` to `32` and retrain.
 # 2. Increase `noise_std` in `observe_ring`.
 # 3. Fix the asymmetry to zero in the simulator. Which posterior dimensions disappear?
-# 4. Replace random uv coverage with a few radial tracks.
+# 4. Set `UV_COVERAGE_MODE = "arcs"` and change `N_UV_ARCS`.
 # 5. Compare posterior image draws to a regularised maximum likelihood image.
