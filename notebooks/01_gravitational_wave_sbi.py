@@ -63,8 +63,14 @@ plt.rcParams.update({"figure.dpi": 120})
 # theta -> clean chirp -> detector-like coloured noise -> observed strain
 # ```
 #
-# Larger `noise_std` makes the inverse problem harder. During a workshop, this
-# is a good knob to turn after the first successful run.
+# The next cell will configure the format of the data (e.g. time series sampling
+# rate, duration, noise properties) and also the type of device to be used to
+# generate samples.
+#
+# Larger `noise_std` makes the inverse problem harder. Return to this later and
+# modify the "observation" to make inference harder or easier. This
+# "observation" is characterised by a true `theta`, the unknown ground truth to
+# be inferred.
 
 # %%
 config = GWConfig(
@@ -262,7 +268,10 @@ plt.show()
 # %%
 # A narrow Gaussian bump is a simple stand-in for an unmodelled detector glitch.
 # The expression is amplitude * exp[-0.5 * ((t - centre) / width)^2].
-glitch = 1.2 * torch.exp(-0.5 * ((time - 0.48) / 0.012) ** 2)
+glitch_amplitude = 1.2
+glitch_center = 0.48
+glitch_width = 0.012
+glitch = glitch_amplitude * torch.exp(-0.5 * ((time - glitch_center) / glitch_width) ** 2)
 x_glitch = x_obs + glitch
 
 # Keep the same training-set standardisation. Changing preprocessing here would
@@ -284,6 +293,22 @@ plot_posterior_predictive(
     ax=axes[1],
     title="Predictive check exposes the mismatch",
 )
+
+# Shade the part of the time series where the injected glitch is concentrated.
+# Three Gaussian widths captures the visibly affected region without covering
+# unrelated parts of the signal.
+glitch_window = 3.0 * glitch_width
+for ax in axes:
+    ax.axvspan(
+        glitch_center - glitch_window,
+        glitch_center + glitch_window,
+        color="tab:red",
+        alpha=0.12,
+        lw=0,
+        label="glitch window",
+    )
+    ax.legend(frameon=False)
+
 fig.tight_layout()
 plt.show()
 
