@@ -1,0 +1,17 @@
+name: hwsa-sbi
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - pytorch
+  - jupyterlab
+  - jupytext
+  - tqdm
+  - pip:
+      - sbi>=0.26
+      - corner>=2.2
+
