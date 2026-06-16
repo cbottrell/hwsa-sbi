@@ -68,9 +68,10 @@ plt.rcParams.update({"figure.dpi": 120})
 # generate samples.
 #
 # Larger `noise_std` makes the inverse problem harder. Return to this later and
-# modify the "observation" to make inference harder or easier. This
-# "observation" is characterised by a true `theta`, the unknown ground truth to
-# be inferred.
+# modify the "observation" to make inference harder or easier.
+#
+# This "observation" is characterised by a true `theta`, the unknown ground truth
+# to be inferred while embedded in representative noise.
 
 # %%
 config = GWConfig(
@@ -114,7 +115,7 @@ plt.show()
 # use `8000` or more.
 
 # %%
-NUM_SIMULATIONS = 5000
+NUM_SIMULATIONS = 12000
 
 # `prior.sample((N,))` returns an N x 4 tensor: one row per simulated source.
 theta_train = prior.sample((NUM_SIMULATIONS,))
@@ -280,7 +281,7 @@ x_glitch_z = standardize(x_glitch, x_mean, x_std)
 
 # The posterior object is reused without retraining: only the conditioning
 # observation changes.
-glitch_samples = posterior.sample((3000,), x=x_glitch_z)
+glitch_samples = posterior.sample((5000,), x=x_glitch_z)
 glitch_draw_ids = torch.randperm(glitch_samples.shape[0])[:160]
 glitch_predictive = clean_chirp(glitch_samples[glitch_draw_ids], config=config)
 
@@ -310,6 +311,14 @@ for ax in axes:
     ax.legend(frameon=False)
 
 fig.tight_layout()
+plt.show()
+
+# %%
+fig = plot_corner(
+    glitch_samples,
+    labels=DEFAULT_PARAMETER_NAMES,
+    truths=true_theta,
+)
 plt.show()
 
 # %% [markdown]
